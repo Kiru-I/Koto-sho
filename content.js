@@ -23,12 +23,15 @@ document.addEventListener("mouseup", (e) => {
         card.style.background = "#ffffff";
         card.style.color = "#000000";
         card.style.border = "1px solid #ccc";
-        card.style.padding = "10px";
-        card.style.borderRadius = "8px";
-        card.style.boxShadow = "0 4px 8px rgba(0,0,0,0.2)";
+        card.style.padding = "16px";
+        card.style.borderRadius = "10px";
+        card.style.boxShadow = "0 6px 12px rgba(0,0,0,0.25)";
         card.style.zIndex = "9999";
         card.style.fontFamily = "sans-serif";
-        card.style.maxWidth = "250px";
+        card.style.width = "350px";   // fixed size
+        card.style.maxWidth = "350px"; 
+        card.style.fontSize = "16px";
+        card.style.lineHeight = "1.5";
 
         // Inner structure
         const header = document.createElement("div");
@@ -88,15 +91,58 @@ document.addEventListener("mouseup", (e) => {
 
         document.body.appendChild(card);
 
+        // --- Keep card fully inside window without resizing ---
+        const rect = card.getBoundingClientRect();
+        let newLeft = parseInt(card.style.left, 10);
+        let newTop = parseInt(card.style.top, 10);
+
+        if (rect.right > window.innerWidth) {
+        newLeft = window.innerWidth - rect.width - 10;
+        }
+        if (rect.bottom > window.innerHeight) {
+        newTop = window.innerHeight - rect.height - 10;
+        }
+        if (rect.left < 0) {
+        newLeft = 10;
+        }
+        if (rect.top < 0) {
+        newTop = 10;
+        }
+
+        card.style.left = newLeft + "px";
+        card.style.top = newTop + "px";
+
         // Render meaning
         function renderMeaning(index) {
             const entry = entries[index];
-            const word = entry.japanese[0]?.word || selection;
+            const word = entry.japanese[0]?.word || "";
             const reading = entry.japanese[0]?.reading || "";
             const meaning = entry.senses[0]?.english_definitions.join(", ") || "No definition";
 
-            title.innerHTML = `<b>${word}</b> (${reading})`;
-            meaningBox.innerHTML = `<small>${meaning}</small>`;
+            // Split kanji and reading if possible
+            let displayWord = "";
+            if (word && reading) {
+                // Example: 図書館 (としょかん)
+                // We'll manually space the readings under each kanji block
+                const parts = [];
+                for (let i = 0; i < word.length; i++) {
+                    const kanji = word[i];
+                    const hira = reading[i] || "";
+                    parts.push(`<ruby style="font-size:22px">${kanji}<rt style="font-size:14px">${hira}</rt></ruby>`);
+                }
+                displayWord = parts.join(" ");
+            } else {
+                displayWord = `<span style="font-size:22px">${reading || selection}</span>`;
+            }
+
+            // Convert whole reading to romaji
+            const romaji = reading ? wanakana.toRomaji(reading) : "";
+
+            title.innerHTML = `<div>${displayWord}</div>`;
+            meaningBox.innerHTML = `
+                <div style="font-size:18px; margin-top:4px; color:#333;">${romaji}</div>
+                <div style="font-size:14px; margin-top:6px;">${meaning}</div>
+            `;
             counter.textContent = `${index + 1} / ${entries.length}`;
         }
 
