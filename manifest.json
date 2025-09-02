@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "Jisho Translator",
+  "version": "1.1",
+  "description": "Click text to translate using Jisho API",
+  "permissions": ["scripting"],
+  "host_permissions": ["https://jisho.org/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ]
+}
