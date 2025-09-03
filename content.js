@@ -1,3 +1,20 @@
+let keyCombo = null; // default
+let pressedKeys = new Set();
+
+chrome.storage.sync.get("keyCombo", (data) => {
+  if (data.keyCombo && data.keyCombo.length) {
+    keyCombo = data.keyCombo;
+  } else {
+    keyCombo = ["alt", "x"]; // fallback if nothing saved
+  }
+});
+
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === "sync" && changes.keyCombo) {
+    keyCombo = changes.keyCombo.newValue;
+  }
+});
+
 document.addEventListener("mouseup", async (e) => {
     let selection = window.getSelection().toString().trim();
     if (!selection) return;
@@ -46,7 +63,6 @@ document.addEventListener("mouseup", async (e) => {
 
         function closeCard() {
             card.remove();
-            document.removeEventListener("keydown", keyHandler);
         }
         closeBtn.addEventListener("click", closeCard);
         header.appendChild(title);
@@ -104,17 +120,10 @@ document.addEventListener("mouseup", async (e) => {
             // Render word with ruby
             let displayWord = "";
             if (word && reading) {
-                const parts = [];
-                for (let i = 0; i < word.length; i++) {
-                    const kanji = word[i];
-                    const hira = reading[i] || "";
-                    parts.push(`<ruby style="font-size:22px">${kanji}<rt style="font-size:14px">${hira}</rt></ruby>`);
-                }
-                displayWord = parts.join(" ");
+                displayWord = `<ruby style="font-size:22px">${word}<rt style="font-size:14px">${reading}</rt></ruby>`;
             } else {
                 displayWord = `<span style="font-size:22px">${reading || selection}</span>`;
             }
-
             const romaji = reading ? wanakana.toRomaji(reading) : "";
             title.innerHTML = `<div>${displayWord}</div>`;
             meaningBox.innerHTML = `
@@ -230,7 +239,6 @@ document.addEventListener("mouseup", async (e) => {
             if (!document.getElementById("jisho-card")) return;
             if (event.key === "ArrowLeft") goPrev();
             if (event.key === "ArrowRight") goNext();
-            if (event.key === "Escape") closeCard();
         }
         document.addEventListener("keydown", keyHandler);
 
@@ -255,4 +263,119 @@ document.addEventListener("mouseup", async (e) => {
             card.style.opacity = "1";
         });
     });
+});
+
+
+function normalizeKey(key) {
+  key = key.toLowerCase();
+  if (key === " ") return "space";
+  if (key === "meta") return "win"; // keep consistent with popup
+  return key;
+}
+
+// --- Alt+X card ---
+document.addEventListener("keydown", (e) => {
+    pressedKeys.add(normalizeKey(e.key));
+    if (keyCombo.every((key) => pressedKeys.has(key))){
+        e.preventDefault();
+
+        // Prevent multiple cards
+        if (document.getElementById("altx-card")) return;
+
+        // Get mouse position (or center if none)
+        const target = document.elementFromPoint(window.lastMouseX, window.lastMouseY);
+        let hoveredText = target ? target.textContent.trim() : "";
+        if (!hoveredText) hoveredText = "No text detected"
+
+        // Create card
+        const card = document.createElement("div");
+        card.id = "altx-card";
+        card.style.position = "fixed";
+        card.style.left = window.lastMouseX + "px";
+        card.style.top = window.lastMouseY + "px";
+        card.style.background = "#fff";
+        card.style.border = "1px solid #ccc";
+        card.style.padding = "16px";
+        card.style.borderRadius = "10px";
+        card.style.boxShadow = "0 6px 12px rgba(0,0,0,0.25)";
+        card.style.zIndex = "9999";
+        card.style.width = "320px";
+        card.style.color = "#000000"
+        card.style.fontFamily = "sans-serif";
+        card.style.fontSize = "14px";
+        card.style.lineHeight = "1.5";
+
+        // Header with close
+        const header = document.createElement("div");
+        header.style.display = "flex";
+        header.style.justifyContent = "space-between";
+        header.style.alignItems = "center";
+
+        const title = document.createElement("span");
+        title.textContent = hoveredText;
+
+        const closeBtn = document.createElement("span");
+        closeBtn.textContent = "✖";
+        closeBtn.style.cursor = "pointer";
+        closeBtn.style.color = "#666";
+        closeBtn.style.fontSize = "14px";
+
+        closeBtn.addEventListener("click", () => card.remove());
+
+        header.appendChild(title);
+        header.appendChild(closeBtn);
+
+        const body = document.createElement("div");
+        body.style.marginTop = "8px";
+        body.textContent = "Highlight part of the text to translate";
+
+        const footer = document.createElement("div");
+        footer.style.marginTop = "8px";
+        footer.style.textAlign = "center";
+        footer.style.fontSize = "12px";
+        footer.style.color = "#666";
+        footer.textContent = "Press Esc to close";
+
+        card.appendChild(header);
+        card.appendChild(body);
+        card.appendChild(footer);
+
+        document.body.appendChild(card);
+
+        // Keep inside screen
+        const rect = card.getBoundingClientRect();
+        let newLeft = parseInt(card.style.left, 10);
+        let newTop = parseInt(card.style.top, 10);
+        if (rect.right > window.innerWidth) newLeft = window.innerWidth - rect.width - 10;
+        if (rect.bottom > window.innerHeight) newTop = window.innerHeight - rect.height - 10;
+        if (rect.left < 0) newLeft = 10;
+        if (rect.top < 0) newTop = 10;
+        card.style.left = newLeft + "px";
+        card.style.top = newTop + "px";
+    }
+});
+
+document.addEventListener("keyup", (e) => {
+  pressedKeys.delete(normalizeKey(e.key));
+});
+
+document.addEventListener("mousemove", (e) => {
+    window.lastMouseX = e.clientX;
+    window.lastMouseY = e.clientY;
+});
+
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+        const jisho = document.getElementById("jisho-card");
+        const altx = document.getElementById("altx-card");
+
+        if (jisho) {
+            jisho.remove();
+            return; // only close jisho first
+        }
+        if (altx) {
+            altx.remove();
+            return;
+        }
+    }
 });

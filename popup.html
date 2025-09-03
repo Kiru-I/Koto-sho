@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Koto-sho Settings</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f8f9fa;
+      padding: 20px;
+      width: 280px;
+      color: #212529;
+    }
+
+    .container {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      border: 1px solid #e9ecef;
+    }
+
+    h3 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #212529;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .label {
+      font-size: 12px;
+      font-weight: 500;
+      color: #6c757d;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    #recordKey {
+      width: 100%;
+      padding: 12px 16px;
+      background: #212529;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    #recordKey:hover {
+      background: #495057;
+    }
+
+    #recordKey:active {
+      background: #343a40;
+    }
+
+    #recordKey.recording {
+      background: #6c757d;
+      cursor: not-allowed;
+    }
+
+    #currentCombo {
+      margin-top: 12px;
+      padding: 10px 12px;
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+      font-size: 13px;
+      color: #495057;
+      min-height: 18px;
+      text-align: center;
+    }
+
+    #currentCombo:not(:empty) {
+      background: #e9ecef;
+      border-color: #ced4da;
+      color: #212529;
+      font-weight: 500;
+    }
+
+    #save {
+      width: 100%;
+      padding: 12px 16px;
+      background: #212529;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      margin-top: 20px;
+      transition: all 0.2s ease;
+    }
+
+    #save:hover {
+      background: #495057;
+    }
+
+    #save:active {
+      background: #343a40;
+    }
+
+    #save:disabled {
+      background: #e9ecef;
+      color: #6c757d;
+      cursor: not-allowed;
+    }
+
+    #status {
+      margin-top: 16px;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 13px;
+      text-align: center;
+      min-height: 16px;
+    }
+
+    #status.success {
+      background: #d1e7dd;
+      color: #0f5132;
+      border: 1px solid #badbcc;
+    }
+
+    #status.error {
+      background: #f8d7da;
+      color: #842029;
+      border: 1px solid #f5c2c7;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h3>Koto-sho Settings</h3>
+
+    <div class="label">Keyboard Shortcut</div>
+    <button id="recordKey">🎹 Press keys...</button>
+    <div id="currentCombo"></div>
+
+    <button id="save">Save</button>
+
+    <div id="status"></div>
+  </div>
+<script src="popup.js"></script>
+</body>
+</html>
