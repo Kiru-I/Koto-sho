@@ -1,10 +1,16 @@
 {
   "manifest_version": 3,
-  "name": "JPWords",
+  "name": "Koto-sho",
   "version": "1.1",
-  "description": "Highlight words to translate using Jisho API, and kanjiapi.dev for Kanjis meaning",
-  "permissions": ["scripting"],
-  "host_permissions": ["https://jisho.org/*"],
+  "description": "Highlight words to translate using Jisho API, and kanjiapi.dev for kanji meanings",
+  "permissions": [
+    "scripting",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://jisho.org/*",
+    "https://kanjiapi.dev/*"
+  ],
   "background": {
     "service_worker": "background.js"
   },

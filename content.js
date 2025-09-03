@@ -103,17 +103,10 @@ document.addEventListener("mouseup", async (e) => {
             // Render word with ruby
             let displayWord = "";
             if (word && reading) {
-                const parts = [];
-                for (let i = 0; i < word.length; i++) {
-                    const kanji = word[i];
-                    const hira = reading[i] || "";
-                    parts.push(`<ruby style="font-size:22px">${kanji}<rt style="font-size:14px">${hira}</rt></ruby>`);
-                }
-                displayWord = parts.join(" ");
+                displayWord = `<ruby style="font-size:22px">${word}<rt style="font-size:14px">${reading}</rt></ruby>`;
             } else {
                 displayWord = `<span style="font-size:22px">${reading || selection}</span>`;
             }
-
             const romaji = reading ? wanakana.toRomaji(reading) : "";
             title.innerHTML = `<div>${displayWord}</div>`;
             meaningBox.innerHTML = `
