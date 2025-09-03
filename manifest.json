@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Jisho Translator",
+  "name": "JPWords",
   "version": "1.1",
-  "description": "Click text to translate using Jisho API",
+  "description": "Highlight words to translate using Jisho API, and kanjiapi.dev for Kanjis meaning",
   "permissions": ["scripting"],
   "host_permissions": ["https://jisho.org/*"],
   "background": {
