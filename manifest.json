@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Koto-sho",
   "version": "1.1",
-  "description": "Highlight words to translate using Jisho API, and kanjiapi.dev for kanji meanings",
+  "description": "Highlight Japanese words on any webpage to instantly see their meanings, readings, and kanji details using Jisho.org and kanjiapi.dev.",
   "permissions": [
     "scripting",
     "activeTab",
