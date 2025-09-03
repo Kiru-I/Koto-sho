@@ -1,6 +1,5 @@
 let keyCombo = null; // default
 let pressedKeys = new Set();
-console.log(keyCombo)
 
 chrome.storage.sync.get("keyCombo", (data) => {
   if (data.keyCombo && data.keyCombo.length) {
@@ -8,13 +7,11 @@ chrome.storage.sync.get("keyCombo", (data) => {
   } else {
     keyCombo = ["alt", "x"]; // fallback if nothing saved
   }
-  console.log("🔑 Loaded keyCombo:", keyCombo);
 });
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === "sync" && changes.keyCombo) {
     keyCombo = changes.keyCombo.newValue;
-    console.log("🔑 Updated keyCombo:", keyCombo);
   }
 });
 
@@ -279,7 +276,6 @@ function normalizeKey(key) {
 // --- Alt+X card ---
 document.addEventListener("keydown", (e) => {
     pressedKeys.add(normalizeKey(e.key));
-    console.log(pressedKeys)
     if (keyCombo.every((key) => pressedKeys.has(key))){
         e.preventDefault();
 
