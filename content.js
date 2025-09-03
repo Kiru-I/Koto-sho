@@ -1,3 +1,23 @@
+let keyCombo = null; // default
+let pressedKeys = new Set();
+console.log(keyCombo)
+
+chrome.storage.sync.get("keyCombo", (data) => {
+  if (data.keyCombo && data.keyCombo.length) {
+    keyCombo = data.keyCombo;
+  } else {
+    keyCombo = ["alt", "x"]; // fallback if nothing saved
+  }
+  console.log("🔑 Loaded keyCombo:", keyCombo);
+});
+
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === "sync" && changes.keyCombo) {
+    keyCombo = changes.keyCombo.newValue;
+    console.log("🔑 Updated keyCombo:", keyCombo);
+  }
+});
+
 document.addEventListener("mouseup", async (e) => {
     let selection = window.getSelection().toString().trim();
     if (!selection) return;
@@ -248,9 +268,19 @@ document.addEventListener("mouseup", async (e) => {
     });
 });
 
+
+function normalizeKey(key) {
+  key = key.toLowerCase();
+  if (key === " ") return "space";
+  if (key === "meta") return "win"; // keep consistent with popup
+  return key;
+}
+
 // --- Alt+X card ---
 document.addEventListener("keydown", (e) => {
-    if (e.altKey && e.key.toLowerCase() === "x") {
+    pressedKeys.add(normalizeKey(e.key));
+    console.log(pressedKeys)
+    if (keyCombo.every((key) => pressedKeys.has(key))){
         e.preventDefault();
 
         // Prevent multiple cards
@@ -327,6 +357,10 @@ document.addEventListener("keydown", (e) => {
         card.style.left = newLeft + "px";
         card.style.top = newTop + "px";
     }
+});
+
+document.addEventListener("keyup", (e) => {
+  pressedKeys.delete(normalizeKey(e.key));
 });
 
 document.addEventListener("mousemove", (e) => {

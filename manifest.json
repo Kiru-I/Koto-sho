@@ -5,7 +5,8 @@
   "description": "Highlight words to translate using Jisho API, and kanjiapi.dev for kanji meanings",
   "permissions": [
     "scripting",
-    "activeTab"
+    "activeTab",
+    "storage"
   ],
   "host_permissions": [
     "https://jisho.org/*",
@@ -19,5 +20,9 @@
       "matches": ["<all_urls>"],
       "js": ["libs/wanakana.min.js", "content.js"]
     }
-  ]
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Koto-sho Settings"
+  }
 }
