@@ -4,6 +4,7 @@
   "version": "1.1",
   "description": "Highlight Japanese words on any webpage to instantly see their meanings, readings, and kanji details using Jisho.org and kanjiapi.dev.",
   "permissions": [
+    "contextMenus",
     "scripting",
     "activeTab",
     "storage"

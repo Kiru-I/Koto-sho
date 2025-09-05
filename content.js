@@ -15,11 +15,14 @@ chrome.storage.onChanged.addListener((changes, area) => {
   }
 });
 
-document.addEventListener("mouseup", async (e) => {
-    let selection = window.getSelection().toString().trim();
-    if (!selection) return;
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.type === "translate" && msg.text) {
+    handleTranslation(msg.text);
+  }
+});
 
-    selection = selection.toLowerCase();
+async function handleTranslation(selection) {
+  selection = selection.toLowerCase();
 
     if (document.getElementById("jisho-card")) return;
 
@@ -28,13 +31,21 @@ document.addEventListener("mouseup", async (e) => {
 
         const entries = res.data.data;
         let currentIndex = 0;
+        
+        // --- find position of highlighted text ---
+        let range = window.getSelection().getRangeAt(0);
+        let selrect = range.getBoundingClientRect();
 
+        // Default to center of screen if selection rect is invalid
+        let x = selrect.left + window.scrollX;
+        let y = selrect.top + window.scrollY - 50; // place a bit above
+        
         // Create card
         const card = document.createElement("div");
         card.id = "jisho-card";
         card.style.position = "fixed";
-        card.style.left = e.pageX + "px";
-        card.style.top = e.pageY + "px";
+        card.style.left = x + "px";
+        card.style.top = y + "px";
         card.style.background = "#fff";
         card.style.color = "#000";
         card.style.border = "1px solid #ccc";
@@ -263,7 +274,7 @@ document.addEventListener("mouseup", async (e) => {
             card.style.opacity = "1";
         });
     });
-});
+};
 
 
 function normalizeKey(key) {

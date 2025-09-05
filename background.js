@@ -11,3 +11,21 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true; // important! keep the channel open
   }
 });
+
+
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.contextMenus.create({
+    id: "kotosho-translate",
+    title: "Koto-sho",
+    contexts: ["selection"] // only show when text is selected
+  });
+});
+
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId === "kotosho-translate" && info.selectionText) {
+    chrome.tabs.sendMessage(tab.id, {
+      type: "translate",
+      text: info.selectionText,
+    });
+  }
+});
