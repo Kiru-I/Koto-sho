@@ -26,7 +26,7 @@ AC
 ```bash
     git clone https://github.com/Kiru-I/Koto-sho.git
 ``` 
-or download the latest `Koto-sho.zip`** from [Releases](https://github.com/Kiru-I/Koto-sho/releases) and extract it.  
+or download the latest **`Koto-sho.zip`** from [Releases](https://github.com/Kiru-I/Koto-sho/releases) and extract it.  
 2. Open Chrome/Chromium and go to `chrome://extensions/`.  
 3. Enable **Developer mode**.  
 4. Click **Load unpacked** and select the project folder/unzipped folder.  
