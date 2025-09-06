@@ -10,13 +10,13 @@ Koto-sho is a Chrome/Chromium extension that helps you **learn Japanese faster**
 ---
 
 ## 🚀 Features
-
-- Highlight words on any website and instantly view their meanings.  
-- Popup card with **word, reading, and English definition**.  
-- Kanji breakdown: onyomi, kunyomi, stroke count, and meanings.  
-- **Customizable keybinds** (up to 3 keys) to trigger the popup.  
-- Popup settings UI – no need to open `options.html` separately.  
-- Settings saved with `chrome.storage.sync` (syncs across browsers).  
+AC
+- Instant word lookup with definitions from Jisho.org
+- Kanji breakdown (meanings, readings, strokes, JLPT level) via kanjiapi.dev
+- Automatic kana → romaji transliteration using Wanakana
+- Popup card with draggable UI, keyboard navigation, and escape-to-close
+- Customizable hotkey combo (up to 3 keys) stored with Chrome sync
+- Popup settings panel for quick adjustments
 
 ---
 
@@ -26,6 +26,7 @@ Koto-sho is a Chrome/Chromium extension that helps you **learn Japanese faster**
 ```bash
     git clone https://github.com/Kiru-I/Koto-sho.git
 ```
+Download the latest **`Koto-sho.zip`** from [Releases](https://github.com/Kiru-I/Koto-sho/releases).  
 2. Open Chrome/Chromium and go to `chrome://extensions/`.  
 3. Enable **Developer mode**.  
 4. Click **Load unpacked** and select the project folder.  
@@ -35,7 +36,7 @@ Koto-sho is a Chrome/Chromium extension that helps you **learn Japanese faster**
 
 ## 🕹️ Usage
 
-- **Highlight a word** → translation popup appears.
+- **Highlight a word** → **Right Click** → **Pick Koto-sho**
 - Or use your **custom keybind**:
   1. Open the popup (`Koto-sho` icon in toolbar).  
   2. Set up your hotkey (e.g. `Ctrl + Shift + K`).  
