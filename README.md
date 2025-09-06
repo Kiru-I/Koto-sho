@@ -25,11 +25,11 @@ AC
 1. Clone or download this repository.
 ```bash
     git clone https://github.com/Kiru-I/Koto-sho.git
-```
-Download the latest **`Koto-sho.zip`** from [Releases](https://github.com/Kiru-I/Koto-sho/releases).  
+``` 
+or download the latest `Koto-sho.zip`** from [Releases](https://github.com/Kiru-I/Koto-sho/releases) and extract it.  
 2. Open Chrome/Chromium and go to `chrome://extensions/`.  
 3. Enable **Developer mode**.  
-4. Click **Load unpacked** and select the project folder.  
+4. Click **Load unpacked** and select the project folder/unzipped folder.  
 5. The extension should now appear in your toolbar
 
 ---
