@@ -1,0 +1,26 @@
+{
+  "name": "jptl",
+  "version": "1.0.0",
+  "description": "Koto-sho is a Chrome/Chromium extension that helps you **learn Japanese faster** by providing quick dictionary lookups and kanji details directly from any webpage.",
+  "main": "background.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kiru-I/Koto-sho.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Kiru-I/Koto-sho/issues"
+  },
+  "homepage": "https://github.com/Kiru-I/Koto-sho#readme",
+  "dependencies": {
+    "@vitalets/google-translate-api": "^9.2.1",
+    "franc": "^6.2.0",
+    "webpack": "^5.101.3",
+    "webpack-cli": "^6.0.1"
+  }
+}

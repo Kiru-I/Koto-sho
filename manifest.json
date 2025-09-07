@@ -11,10 +11,12 @@
   ],
   "host_permissions": [
     "https://jisho.org/*",
-    "https://kanjiapi.dev/*"
+    "https://kanjiapi.dev/*",
+    "https://translate.google.com/"
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "dist/bundle.js",
+    "type": "module"
   },
   "content_scripts": [
     {
