@@ -1,392 +1,259 @@
-let keyCombo = null; // default
-let pressedKeys = new Set();
+// content.js
 
+let keyCombo = null;
+let pressedKeys = new Set();
+let allEntries = [];
+let currentIndex = 0;
+
+// --- Load key combo ---
 chrome.storage.sync.get("keyCombo", (data) => {
-  if (data.keyCombo && data.keyCombo.length) {
-    keyCombo = data.keyCombo;
-  } else {
-    keyCombo = ["alt", "x"]; // fallback if nothing saved
-  }
+  keyCombo = (data.keyCombo && data.keyCombo.length) ? data.keyCombo : ["alt", "x"];
 });
 
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === "sync" && changes.keyCombo) {
-    keyCombo = changes.keyCombo.newValue;
+  if (area === "sync" && changes.keyCombo) keyCombo = changes.keyCombo.newValue;
+});
+
+// --- Listen for messages ---
+chrome.runtime.onMessage.addListener((msg) => {
+  switch (msg.type) {
+    case "translate":
+      allEntries = [];
+      currentIndex = 0;
+      break;
+
+    case "translate-page":
+    case "searchResults":
+      if (!Array.isArray(msg.items) && !Array.isArray(msg.entries)) return;
+      const items = msg.items || msg.entries;
+      allEntries = allEntries.concat(items);
+      openOrUpdateCard(msg.keyword || items[0]?.japanese?.[0]?.word || items[0]?.japanese?.[0]?.reading || "");
+      break;
+    case "translate-done":
+      const card = document.getElementById("jisho-card");
+      if (card) card.dataset.done = "true";
+      console.log("✅ Translation done");
+      break;
   }
 });
 
-chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg.type === "translate" && msg.text) {
-    handleTranslation(msg.text);
-  }
-});
-
-async function handleTranslation(selection) {
-  selection = selection.toLowerCase();
-
-    if (document.getElementById("jisho-card")) return;
-
-    chrome.runtime.sendMessage({ type: "translate", text: selection }, async (res) => {
-        if (!res || !res.success || !res.data.data || res.data.data.length === 0) return;
-
-        const entries = res.data.data;
-        let currentIndex = 0;
-        
-        // --- find position of highlighted text ---
-        let range = window.getSelection().getRangeAt(0);
-        let selrect = range.getBoundingClientRect();
-
-        // Default to center of screen if selection rect is invalid
-        let x = selrect.left + window.scrollX;
-        let y = selrect.top + window.scrollY - 50; // place a bit above
-        
-        // Create card
-        const card = document.createElement("div");
-        card.id = "jisho-card";
-        card.style.position = "fixed";
-        card.style.left = x + "px";
-        card.style.top = y + "px";
-        card.style.background = "#fff";
-        card.style.color = "#000";
-        card.style.border = "1px solid #ccc";
-        card.style.padding = "16px";
-        card.style.borderRadius = "10px";
-        card.style.boxShadow = "0 6px 12px rgba(0,0,0,0.25)";
-        card.style.zIndex = "9999";
-        card.style.fontFamily = "sans-serif";
-        card.style.width = "350px";
-        card.style.maxWidth = "350px";
-        card.style.fontSize = "16px";
-        card.style.lineHeight = "1.5";
-
-        // Header
-        const header = document.createElement("div");
-        header.style.display = "flex";
-        header.style.justifyContent = "space-between";
-        header.style.alignItems = "center";
-
-        const title = document.createElement("span");
-        const closeBtn = document.createElement("span");
-        closeBtn.textContent = "✖";
-        closeBtn.style.cursor = "pointer";
-        closeBtn.style.color = "#666";
-        closeBtn.style.fontSize = "14px";
-
-        function closeCard() {
-            card.remove();
-        }
-        closeBtn.addEventListener("click", closeCard);
-        header.appendChild(title);
-        header.appendChild(closeBtn);
-
-        const meaningBox = document.createElement("div");
-        meaningBox.style.marginTop = "6px";
-        meaningBox.style.minHeight = "40px";
-
-        const nav = document.createElement("div");
-        nav.style.marginTop = "8px";
-        nav.style.textAlign = "center";
-        const prevBtn = document.createElement("button");
-        prevBtn.textContent = "<";
-        prevBtn.style.marginRight = "10px";
-        const counter = document.createElement("span");
-        const nextBtn = document.createElement("button");
-        nextBtn.textContent = ">";
-        nextBtn.style.marginLeft = "10px";
-        nav.appendChild(prevBtn);
-        nav.appendChild(counter);
-        nav.appendChild(nextBtn);
-
-        const footer = document.createElement("div");
-        footer.textContent = "Use arrow keys or buttons | Esc to close | Drag to move";
-        footer.style.marginTop = "4px";
-        footer.style.textAlign = "center";
-        footer.style.color = "#666";
-        footer.style.fontSize = "12px";
-
-        card.appendChild(header);
-        card.appendChild(meaningBox);
-        card.appendChild(nav);
-        card.appendChild(footer);
-        document.body.appendChild(card);
-
-        // Keep card inside window
-        const rect = card.getBoundingClientRect();
-        let newLeft = parseInt(card.style.left, 10);
-        let newTop = parseInt(card.style.top, 10);
-        if (rect.right > window.innerWidth) newLeft = window.innerWidth - rect.width - 10;
-        if (rect.bottom > window.innerHeight) newTop = window.innerHeight - rect.height - 10;
-        if (rect.left < 0) newLeft = 10;
-        if (rect.top < 0) newTop = 10;
-        card.style.left = newLeft + "px";
-        card.style.top = newTop + "px";
-
-        // Render main word meaning
-        function renderMeaning(index) {
-            const entry = entries[index];
-            const word = entry.japanese[0]?.word || "";
-            const reading = entry.japanese[0]?.reading || "";
-            const meaning = entry.senses[0]?.english_definitions.join(", ") || "No definition";
-
-            // Render word with ruby
-            let displayWord = "";
-            if (word && reading) {
-                displayWord = `<ruby style="font-size:22px">${word}<rt style="font-size:14px">${reading}</rt></ruby>`;
-            } else {
-                displayWord = `<span style="font-size:22px">${reading || selection}</span>`;
-            }
-            const romaji = reading ? wanakana.toRomaji(reading) : "";
-            title.innerHTML = `<div>${displayWord}</div>`;
-            meaningBox.innerHTML = `
-                <div style="font-size:18px; margin-top:4px; color:#333;">${romaji}</div>
-                <div style="font-size:14px; margin-top:6px;">${meaning}</div>
-            `;
-            counter.textContent = `${index + 1} / ${entries.length}`;
-
-            // --- Kanji info at bottom ---
-            renderKanjiInfo(word);
-        }
-
-        // Kanji info function
-        async function renderKanjiInfo(word) {
-            const kanjis = [...word].filter(c => /[\u4e00-\u9faf]/.test(c));
-            if (!kanjis.length) return;
-
-            let kanjiIndex = 0;
-
-            // Create container
-            let kanjiContainer = card.querySelector(".kanji-container");
-            if (!kanjiContainer) {
-                kanjiContainer = document.createElement("div");
-                kanjiContainer.className = "kanji-container";
-                kanjiContainer.style.marginTop = "10px";
-                kanjiContainer.style.borderTop = "1px solid #eee";
-                kanjiContainer.style.paddingTop = "6px";
-                card.appendChild(kanjiContainer);
-            }
-
-            kanjiContainer.innerHTML = ""; // reset
-
-            const kanjiDisplay = document.createElement("div");
-            const nav = document.createElement("div");
-            nav.style.textAlign = "center";
-            nav.style.marginTop = "4px";
-
-            const prevBtn = document.createElement("button");
-            const nextBtn = document.createElement("button");
-            const counter = document.createElement("span");
-            prevBtn.textContent = "<";
-            nextBtn.textContent = ">";
-            nav.appendChild(prevBtn);
-            nav.appendChild(counter);
-            nav.appendChild(nextBtn);
-
-            kanjiContainer.appendChild(kanjiDisplay);
-            kanjiContainer.appendChild(nav);
-
-            async function showKanji(idx) {
-                const kanji = kanjis[idx];
-                counter.textContent = `< ${idx + 1} / ${kanjis.length} >`;
-
-                try {                    
-                    const res = await fetch(`https://kanjiapi.dev/v1/kanji/${kanji}`);
-                    if (!res.ok) throw new Error("Kanji fetch failed");
-                    const data = await res.json();
-
-                    const meanings = data.meanings || [];
-                    const onReadings = data.on_readings || [];
-                    const kunReadings = data.kun_readings || [];
-
-                    // Build ruby strings for readings
-                    const onRuby = onReadings.map(r => {
-                        const romaji = wanakana.toRomaji(r);
-                        return `<ruby>${r}<rt>${romaji}</rt></ruby>`;
-                    }).join(", ");
-
-                    const kunRuby = kunReadings.map(r => {
-                        const romaji = wanakana.toRomaji(r);
-                        return `<ruby>${r}<rt>${romaji}</rt></ruby>`;
-                    }).join(", ");
-
-                    kanjiDisplay.innerHTML = `
-                        <strong style="font-size:22px">${data.kanji}</strong><br>
-                        Meaning: ${meanings.join(", ")}<br>
-                        Onyomi: ${onRuby}<br>
-                        Kunyomi: ${kunRuby}<br>
-                        Stroke count: ${data.stroke_count}<br>
-                        JLPT: ${data.jlpt || "N/A"}
-                    `;
-                } catch (err) {
-                    kanjiDisplay.innerHTML = "Kanji info not available";
-                    console.error(err);
-                }
-            }
-
-            prevBtn.addEventListener("click", () => {
-                kanjiIndex = (kanjiIndex - 1 + kanjis.length) % kanjis.length;
-                showKanji(kanjiIndex);
-            });
-            nextBtn.addEventListener("click", () => {
-                kanjiIndex = (kanjiIndex + 1) % kanjis.length;
-                showKanji(kanjiIndex);
-            });
-
-            showKanji(kanjiIndex);
-        }
-
-        // Navigation handlers
-        function goPrev() {
-            currentIndex = (currentIndex - 1 + entries.length) % entries.length;
-            renderMeaning(currentIndex);
-        }
-        function goNext() {
-            currentIndex = (currentIndex + 1) % entries.length;
-            renderMeaning(currentIndex);
-        }
-        prevBtn.addEventListener("click", goPrev);
-        nextBtn.addEventListener("click", goNext);
-
-        function keyHandler(event) {
-            if (!document.getElementById("jisho-card")) return;
-            if (event.key === "ArrowLeft") goPrev();
-            if (event.key === "ArrowRight") goNext();
-        }
-        document.addEventListener("keydown", keyHandler);
-
-        renderMeaning(currentIndex);
-
-        // Draggable
-        let offsetX, offsetY, isDragging = false;
-        card.addEventListener("mousedown", (event) => {
-            if (event.target.tagName === "BUTTON" || event.target === closeBtn) return;
-            isDragging = true;
-            offsetX = event.clientX - card.offsetLeft;
-            offsetY = event.clientY - card.offsetTop;
-            card.style.opacity = "0.8";
-        });
-        document.addEventListener("mousemove", (event) => {
-            if (!isDragging) return;
-            card.style.left = event.clientX - offsetX + "px";
-            card.style.top = event.clientY - offsetY + "px";
-        });
-        document.addEventListener("mouseup", () => {
-            isDragging = false;
-            card.style.opacity = "1";
-        });
-    });
-};
-
-
+// --- Helpers ---
 function normalizeKey(key) {
   key = key.toLowerCase();
   if (key === " ") return "space";
-  if (key === "meta") return "win"; // keep consistent with popup
+  if (key === "meta") return "win";
   return key;
 }
 
-// --- Alt+X card ---
-document.addEventListener("keydown", (e) => {
-    pressedKeys.add(normalizeKey(e.key));
-    if (keyCombo.every((key) => pressedKeys.has(key))){
-        e.preventDefault();
+function updateCounter() {
+  const counter = document.querySelector("#jisho-card .jisho-counter");
+  if (counter) counter.textContent = `${currentIndex + 1} / ${allEntries.length}`;
+}
 
-        // Prevent multiple cards
-        if (document.getElementById("altx-card")) return;
+// --- Main card ---
+function openOrUpdateCard(selection) {
+  let card = document.getElementById("jisho-card");
+  if (!card) {
+    card = createJishoCard(selection);
+    document.body.appendChild(card);
+  }
 
-        // Get mouse position (or center if none)
-        const target = document.elementFromPoint(window.lastMouseX, window.lastMouseY);
-        let hoveredText = target ? target.textContent.trim() : "";
-        if (!hoveredText) hoveredText = "No text detected"
+  if (allEntries.length) {
+    currentIndex = 0;
+    renderMeaning(currentIndex);
+  }
+}
 
-        // Create card
-        const card = document.createElement("div");
-        card.id = "altx-card";
-        card.style.position = "fixed";
-        card.style.left = window.lastMouseX + "px";
-        card.style.top = window.lastMouseY + "px";
-        card.style.background = "#fff";
-        card.style.border = "1px solid #ccc";
-        card.style.padding = "16px";
-        card.style.borderRadius = "10px";
-        card.style.boxShadow = "0 6px 12px rgba(0,0,0,0.25)";
-        card.style.zIndex = "9999";
-        card.style.width = "320px";
-        card.style.color = "#000000"
-        card.style.fontFamily = "sans-serif";
-        card.style.fontSize = "14px";
-        card.style.lineHeight = "1.5";
+// --- Render meaning ---
+function renderMeaning(index) {
+  const card = document.getElementById("jisho-card");
+  if (!card) return;
 
-        // Header with close
-        const header = document.createElement("div");
-        header.style.display = "flex";
-        header.style.justifyContent = "space-between";
-        header.style.alignItems = "center";
+  const entry = allEntries[index];
+  const title = card.querySelector(".jisho-title");
+  const meaningBox = card.querySelector(".jisho-meaning");
+  const counter = card.querySelector(".jisho-counter");
 
-        const title = document.createElement("span");
-        title.textContent = hoveredText;
+  if (!entry) {
+    title.textContent = "No definition yet";
+    meaningBox.textContent = "Waiting for more results...";
+    counter.textContent = `${index + 1} / ${allEntries.length || 1}`;
+    return;
+  }
 
-        const closeBtn = document.createElement("span");
-        closeBtn.textContent = "✖";
-        closeBtn.style.cursor = "pointer";
-        closeBtn.style.color = "#666";
-        closeBtn.style.fontSize = "14px";
+  const word = entry.japanese?.[0]?.word || "";
+  const reading = entry.japanese?.[0]?.reading || "";
+  const meaning = entry.senses?.[0]?.english_definitions?.join(", ") || "No definition";
 
-        closeBtn.addEventListener("click", () => card.remove());
+  const romaji = (typeof wanakana !== "undefined" && reading) ? wanakana.toRomaji(reading) : "";
 
-        header.appendChild(title);
-        header.appendChild(closeBtn);
+  title.innerHTML = word ? `<ruby>${word}<rt>${reading}</rt></ruby>` : reading;
+  meaningBox.innerHTML = `<div style="margin-top:4px; font-size:16px; color:#333;">${romaji}</div>
+                          <div style="margin-top:6px;">${meaning}</div>`;
+  counter.textContent = `${index + 1} / ${allEntries.length}`;
 
-        const body = document.createElement("div");
-        body.style.marginTop = "8px";
-        body.textContent = "Highlight part of the text to translate";
+  renderKanjiInfo(word);
+}
 
-        const footer = document.createElement("div");
-        footer.style.marginTop = "8px";
-        footer.style.textAlign = "center";
-        footer.style.fontSize = "12px";
-        footer.style.color = "#666";
-        footer.textContent = "Press Esc to close";
+// --- Kanji info ---
+async function renderKanjiInfo(word) {
+  const card = document.getElementById("jisho-card");
+  if (!card) return;
 
-        card.appendChild(header);
-        card.appendChild(body);
-        card.appendChild(footer);
+  const kanjis = [...(word || "")].filter(c => /[\u4e00-\u9faf]/.test(c));
+  let container = card.querySelector(".kanji-container");
+  if (!kanjis.length) {
+    if (container) container.remove();
+    return;
+  }
 
-        document.body.appendChild(card);
+  if (!container) {
+    container = document.createElement("div");
+    container.className = "kanji-container";
+    container.style.marginTop = "10px";
+    container.style.borderTop = "1px solid #eee";
+    container.style.paddingTop = "6px";
+    card.appendChild(container);
+  }
 
-        // Keep inside screen
-        const rect = card.getBoundingClientRect();
-        let newLeft = parseInt(card.style.left, 10);
-        let newTop = parseInt(card.style.top, 10);
-        if (rect.right > window.innerWidth) newLeft = window.innerWidth - rect.width - 10;
-        if (rect.bottom > window.innerHeight) newTop = window.innerHeight - rect.height - 10;
-        if (rect.left < 0) newLeft = 10;
-        if (rect.top < 0) newTop = 10;
-        card.style.left = newLeft + "px";
-        card.style.top = newTop + "px";
+  container.innerHTML = "";
+  const display = document.createElement("div");
+  const nav = document.createElement("div");
+  nav.style.textAlign = "center";
+  const prevBtn = document.createElement("button"); prevBtn.textContent = "<";
+  const nextBtn = document.createElement("button"); nextBtn.textContent = ">";
+  const kCounter = document.createElement("span");
+  nav.append(prevBtn, kCounter, nextBtn);
+  container.append(display, nav);
+
+  let kanjiIndex = 0;
+
+  async function showKanji(idx) {
+    const kanji = kanjis[idx];
+    kCounter.textContent = `< ${idx + 1} / ${kanjis.length} >`;
+
+    try {
+      const res = await fetch(`https://kanjiapi.dev/v1/kanji/${encodeURIComponent(kanji)}`);
+      const data = await res.json();
+      const onReadings = data.on_readings?.map(r => (typeof wanakana !== "undefined") ? wanakana.toRomaji(r) : r).join(", ") || "";
+      const kunReadings = data.kun_readings?.map(r => (typeof wanakana !== "undefined") ? wanakana.toRomaji(r) : r).join(", ") || "";
+      display.innerHTML = `<strong>${kanji}</strong><br>Meaning: ${data.meanings?.join(", ")}<br>
+                           Onyomi: ${onReadings}<br>Kunyomi: ${kunReadings}<br>
+                           Stroke: ${data.stroke_count}<br>JLPT: ${data.jlpt || "N/A"}`;
+    } catch {
+      display.textContent = "Kanji info not available";
     }
-});
+  }
 
-document.addEventListener("keyup", (e) => {
-  pressedKeys.delete(normalizeKey(e.key));
-});
+  prevBtn.onclick = () => { kanjiIndex = (kanjiIndex - 1 + kanjis.length) % kanjis.length; showKanji(kanjiIndex); };
+  nextBtn.onclick = () => { kanjiIndex = (kanjiIndex + 1) % kanjis.length; showKanji(kanjiIndex); };
 
-document.addEventListener("mousemove", (e) => {
-    window.lastMouseX = e.clientX;
-    window.lastMouseY = e.clientY;
-});
+  showKanji(kanjiIndex);
+}
 
+// --- Create Jisho card ---
+function createJishoCard(selection) {
+  const card = document.createElement("div");
+  card.id = "jisho-card";
+  card.dataset.rendered = "true";
+  Object.assign(card.style, {
+    position: "fixed", top: "50px", left: "50px", width: "350px",
+    background: "#fff", border: "1px solid #ccc", padding: "16px",
+    borderRadius: "10px", boxShadow: "0 6px 12px rgba(0,0,0,0.25)",
+    zIndex: 9999, fontFamily: "sans-serif", color: "black"
+  });
+
+  const header = document.createElement("div");
+  header.style.display = "flex"; header.style.justifyContent = "space-between";
+  const title = document.createElement("span"); title.className = "jisho-title"; title.textContent = selection;
+  const closeBtn = document.createElement("span"); closeBtn.textContent = "✖"; closeBtn.style.cursor = "pointer"; closeBtn.onclick = () => card.remove();
+  header.append(title, closeBtn);
+
+  const meaningBox = document.createElement("div"); meaningBox.className = "jisho-meaning"; meaningBox.style.marginTop = "6px"; meaningBox.textContent = "Searching...";
+
+  const nav = document.createElement("div"); nav.style.marginTop = "8px"; nav.style.textAlign = "center";
+  const prevBtn = document.createElement("button"); prevBtn.textContent = "<";
+  const counter = document.createElement("span"); counter.className = "jisho-counter";
+  const nextBtn = document.createElement("button"); nextBtn.textContent = ">";
+  nav.append(prevBtn, counter, nextBtn);
+
+  prevBtn.onclick = () => { currentIndex = (currentIndex - 1 + allEntries.length) % allEntries.length; renderMeaning(currentIndex); };
+  nextBtn.onclick = () => { currentIndex = (currentIndex + 1) % allEntries.length; renderMeaning(currentIndex); };
+
+  const footer = document.createElement("div"); footer.style.marginTop = "4px"; footer.style.textAlign = "center"; footer.style.color = "#666"; footer.style.fontSize = "12px";
+  footer.textContent = "Use arrows | Esc to close | Drag";
+
+  card.append(header, meaningBox, nav, footer);
+
+  // Keyboard nav & draggable
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowLeft") prevBtn.click();
+    if (e.key === "ArrowRight") nextBtn.click();
+    if (e.key === "Escape") card.remove();
+  });
+
+  let offsetX, offsetY, dragging = false;
+  card.onmousedown = (e) => { if (e.target.tagName !== "BUTTON") { dragging = true; offsetX = e.clientX - card.offsetLeft; offsetY = e.clientY - card.offsetTop; } };
+  document.onmousemove = (e) => { if (dragging) { card.style.left = e.clientX - offsetX + "px"; card.style.top = e.clientY - offsetY + "px"; } };
+  document.onmouseup = () => { dragging = false; };
+
+  return card;
+}
+
+// --- Alt+X hover card ---
 document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
-        const jisho = document.getElementById("jisho-card");
-        const altx = document.getElementById("altx-card");
+  pressedKeys.add(normalizeKey(e.key));
+  if (Array.isArray(keyCombo) && keyCombo.every(k => pressedKeys.has(k))) {
+    e.preventDefault();
+    openAltXCard();
+  }
+});
 
-        if (jisho) {
-            jisho.remove();
-            return; // only close jisho first
-        }
-        if (altx) {
-            altx.remove();
-            return;
-        }
-    }
+document.addEventListener("keyup", (e) => pressedKeys.delete(normalizeKey(e.key)));
+document.addEventListener("mousemove", (e) => { window.lastMouseX = e.clientX; window.lastMouseY = e.clientY; });
+
+function openAltXCard() {
+  if (document.getElementById("altx-card")) return;
+
+  const mx = window.lastMouseX || (window.innerWidth / 2);
+  const my = window.lastMouseY || (window.innerHeight / 2);
+
+  const target = document.elementFromPoint(mx, my);
+  let hoveredText = target?.textContent?.trim() || "No text detected";
+
+  const card = document.createElement("div");
+  card.id = "altx-card";
+  Object.assign(card.style, {
+    position: "fixed", left: mx + "px", top: my + "px",
+    background: "#fff", border: "1px solid #ccc", padding: "16px",
+    borderRadius: "10px", boxShadow: "0 6px 12px rgba(0,0,0,0.25)",
+    zIndex: 9999, width: "320px", color: "#000", fontFamily: "sans-serif", fontSize: "14px"
+  });
+
+  const header = document.createElement("div"); header.style.display = "flex"; header.style.justifyContent = "space-between";
+  const title = document.createElement("span"); title.textContent = hoveredText;
+  const closeBtn = document.createElement("span"); closeBtn.textContent = "✖"; closeBtn.style.cursor = "pointer"; closeBtn.onclick = () => card.remove();
+  header.append(title, closeBtn);
+
+  const body = document.createElement("div"); body.style.marginTop = "8px"; body.textContent = "Highlight text to translate";
+
+  const footer = document.createElement("div"); footer.style.marginTop = "8px"; footer.style.textAlign = "center"; footer.style.fontSize = "12px"; footer.style.color = "#666"; footer.textContent = "Press Esc to close";
+
+  card.append(header, body, footer);
+  document.body.appendChild(card);
+
+  // Keep inside screen
+  const rect = card.getBoundingClientRect();
+  if (rect.right > window.innerWidth) card.style.left = (window.innerWidth - rect.width - 10) + "px";
+  if (rect.bottom > window.innerHeight) card.style.top = (window.innerHeight - rect.height - 10) + "px";
+  if (rect.left < 0) card.style.left = "10px";
+  if (rect.top < 0) card.style.top = "10px";
+}
+
+// --- Close cards on Esc ---
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    document.getElementById("jisho-card")?.remove();
+    document.getElementById("altx-card")?.remove();
+  }
 });
