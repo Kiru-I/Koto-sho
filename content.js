@@ -1,17 +1,21 @@
 // content.js
-
 let keyCombo = null;
 let pressedKeys = new Set();
 let allEntries = [];
 let currentIndex = 0;
 
-// --- Load key combo ---
 chrome.storage.sync.get("keyCombo", (data) => {
-  keyCombo = (data.keyCombo && data.keyCombo.length) ? data.keyCombo : ["alt", "x"];
+  if (data.keyCombo && data.keyCombo.length) {
+    keyCombo = data.keyCombo;
+  } else {
+    keyCombo = ["alt", "x"]; // fallback if nothing saved
+  }
 });
 
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === "sync" && changes.keyCombo) keyCombo = changes.keyCombo.newValue;
+  if (area === "sync" && changes.keyCombo) {
+    keyCombo = changes.keyCombo.newValue;
+  }
 });
 
 // --- Listen for messages ---
@@ -33,6 +37,10 @@ chrome.runtime.onMessage.addListener((msg) => {
       const card = document.getElementById("jisho-card");
       if (card) card.dataset.done = "true";
       console.log("✅ Translation done");
+      break;
+    
+    case "translationResult":
+      showVitaletsCard(msg);
       break;
   }
 });
@@ -87,9 +95,13 @@ function renderMeaning(index) {
 
   const romaji = (typeof wanakana !== "undefined" && reading) ? wanakana.toRomaji(reading) : "";
 
-  title.innerHTML = word ? `<ruby>${word}<rt>${reading}</rt></ruby>` : reading;
-  meaningBox.innerHTML = `<div style="margin-top:4px; font-size:16px; color:#333;">${romaji}</div>
-                          <div style="margin-top:6px;">${meaning}</div>`;
+  title.innerHTML = word 
+    ? `<ruby style="font-size:20px">${word}<rt style="font-size:18px">${reading}</rt></ruby>` 
+    : `<span style="font-size:18px">${reading}</span>`;
+
+  meaningBox.innerHTML = `<div style="margin-top:4px; font-size:18px; color:#333;">${romaji}</div>
+                          <div style="margin-top:6px; font-size:18px;">${meaning}</div>`;
+  counter.style.fontSize = "16px";
   counter.textContent = `${index + 1} / ${allEntries.length}`;
 
   renderKanjiInfo(word);
@@ -118,11 +130,17 @@ async function renderKanjiInfo(word) {
 
   container.innerHTML = "";
   const display = document.createElement("div");
+  display.style.fontSize = "18px"; // Make Kanji info bigger
   const nav = document.createElement("div");
   nav.style.textAlign = "center";
-  const prevBtn = document.createElement("button"); prevBtn.textContent = "<";
-  const nextBtn = document.createElement("button"); nextBtn.textContent = ">";
+  const prevBtn = document.createElement("button"); 
+  prevBtn.textContent = "<"; 
+  prevBtn.style.fontSize = "16px";
+  const nextBtn = document.createElement("button"); 
+  nextBtn.textContent = ">"; 
+  nextBtn.style.fontSize = "16px";
   const kCounter = document.createElement("span");
+  kCounter.style.fontSize = "16px";
   nav.append(prevBtn, kCounter, nextBtn);
   container.append(display, nav);
 
@@ -137,11 +155,15 @@ async function renderKanjiInfo(word) {
       const data = await res.json();
       const onReadings = data.on_readings?.map(r => (typeof wanakana !== "undefined") ? wanakana.toRomaji(r) : r).join(", ") || "";
       const kunReadings = data.kun_readings?.map(r => (typeof wanakana !== "undefined") ? wanakana.toRomaji(r) : r).join(", ") || "";
-      display.innerHTML = `<strong>${kanji}</strong><br>Meaning: ${data.meanings?.join(", ")}<br>
-                           Onyomi: ${onReadings}<br>Kunyomi: ${kunReadings}<br>
-                           Stroke: ${data.stroke_count}<br>JLPT: ${data.jlpt || "N/A"}`;
+      display.innerHTML = `<strong style="font-size:20px">${kanji}</strong><br>
+                           <span style="font-size:18px">Meaning: ${data.meanings?.join(", ")}</span><br>
+                           <span style="font-size:18px">Onyomi: ${onReadings}</span><br>
+                           <span style="font-size:18px">Kunyomi: ${kunReadings}</span><br>
+                           <span style="font-size:18px">Stroke: ${data.stroke_count}</span><br>
+                           <span style="font-size:18px">JLPT: ${data.jlpt || "N/A"}</span>`;
     } catch {
       display.textContent = "Kanji info not available";
+      display.style.fontSize = "18px";
     }
   }
 
@@ -151,6 +173,89 @@ async function renderKanjiInfo(word) {
   showKanji(kanjiIndex);
 }
 
+// --- Create Vitalets translation card ---
+function showVitaletsCardFull(result) {
+  let card = document.getElementById("vitalets-card");
+  if (!card) {
+    card = document.createElement("div");
+    card.id = "vitalets-card";
+    Object.assign(card.style, {
+      position: "fixed",
+      top: "60px",
+      left: "60px",
+      width: "420px",
+      background: "#f9f9f9",
+      border: "1px solid #ccc",
+      padding: "16px",
+      borderRadius: "10px",
+      boxShadow: "0 6px 12px rgba(0,0,0,0.25)",
+      zIndex: 9999,
+      fontFamily: "sans-serif",
+      color: "#000",
+      maxHeight: "80vh",
+      overflowY: "auto"
+    });
+
+    const header = document.createElement("div");
+    header.style.display = "flex";
+    header.style.justifyContent = "space-between";
+    const title = document.createElement("span");
+    title.textContent = "Translation";
+    const closeBtn = document.createElement("span");
+    closeBtn.textContent = "✖";
+    closeBtn.style.cursor = "pointer";
+    closeBtn.onclick = () => card.remove();
+    header.append(title, closeBtn);
+
+    const body = document.createElement("div");
+    body.className = "vitalets-body";
+    body.style.marginTop = "8px";
+
+    card.append(header, body);
+    document.body.appendChild(card);
+
+    // Make draggable
+    let offsetX, offsetY, dragging = false;
+    card.onmousedown = (e) => {
+      if (e.target.tagName !== "BUTTON") {
+        dragging = true;
+        offsetX = e.clientX - card.offsetLeft;
+        offsetY = e.clientY - card.offsetTop;
+      }
+    };
+    document.onmousemove = (e) => { if (dragging) { card.style.left = e.clientX - offsetX + "px"; card.style.top = e.clientY - offsetY + "px"; } };
+    document.onmouseup = () => { dragging = false; };
+  }
+
+  const body = card.querySelector(".vitalets-body");
+
+  // Filter out sentences where orig === trans (like punctuation)
+  const sentencesHTML = (result.raw.sentences || [])
+    .filter(s => s.orig && s.trans && s.orig.trim() !== s.trans.trim())
+    .map(s => `<div>${s.orig} → ${s.trans}</div>`)
+    .join("");
+
+  body.innerHTML = `
+    <div style="margin-top:8px; font-size:18px;"><strong>Full Translation:</strong> ${result.text}</div>
+    <div style="font-size:16px;"><strong>Original Text:</strong> ${result.original}</div>
+    <div style="font-size:16px;"><strong>Transliteration:</strong> ${result.srcTranslit}</div>
+    <div style="margin-top:8px; font-size:16px;"><strong>Sentence Breakdown:</strong></div>
+    <div style="font-size:16px;">
+      ${sentencesHTML || "<div>No sentence breakdown available</div>"}
+    </div>
+    <div style="margin-top:8px; font-size:16px;">
+      <strong>Detected → Target Language:</strong> ${result.detectedLang}/${result.detectedLangAuto} → ${result.targetLang}
+    </div>
+  `;
+}
+
+// Listen for translation messages
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg.type === "translationResultFull") {
+    console.log(msg)  
+    showVitaletsCardFull(msg.result);
+  } 
+});
 // --- Create Jisho card ---
 function createJishoCard(selection) {
   const card = document.createElement("div");
@@ -203,7 +308,7 @@ function createJishoCard(selection) {
 // --- Alt+X hover card ---
 document.addEventListener("keydown", (e) => {
   pressedKeys.add(normalizeKey(e.key));
-  if (Array.isArray(keyCombo) && keyCombo.every(k => pressedKeys.has(k))) {
+  if (keyCombo.every((key) => pressedKeys.has(key))){
     e.preventDefault();
     openAltXCard();
   }
@@ -255,5 +360,6 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     document.getElementById("jisho-card")?.remove();
     document.getElementById("altx-card")?.remove();
+    document.getElementById("vitalets-card")?.remove();
   }
 });
