@@ -5,37 +5,63 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+const activeFetches = new Map(); // tabId → {cancel: false, controller: AbortController}
+
 async function fetchPagedResults(keyword, tabId) {
-  let page = 1;
-
-  while (true) {
-    console.log(`[fetchPagedResults] Fetching page ${page}`);
-    const res = await fetch(
-      `https://jisho.org/api/v1/search/words?keyword=${encodeURIComponent(keyword)}&page=${page}`
-    );
-
-    if (!res.ok) {
-      console.warn(`[fetchPagedResults] Request failed: ${res.status}`);
-      break;
-    }
-
-    const data = await res.json();
-    if (!data || !data.data || data.data.length === 0) {
-      console.log("[fetchPagedResults] No more results, stopping.");
-      break;
-    }
-
-    // Send results to content script
-    chrome.tabs.sendMessage(tabId, {
-      type: "searchResults",
-      entries: data.data,
-      page,
-    });
-
-    page++;
-    await sleep(200); // prevent spamming API
+  if (activeFetches.has(tabId)) {
+    activeFetches.get(tabId).cancel = true;
+    activeFetches.get(tabId).controller?.abort();
   }
+
+  const controller = new AbortController();
+  const state = { cancel: false, controller };
+  activeFetches.set(tabId, state);
+
+  chrome.tabs.sendMessage(tabId, { type: "clearSearchResults" });
+
+  let page = 1;
+  while (!state.cancel) {
+    console.log(`[fetchPagedResults] Fetching page ${page}`);
+
+    try {
+      const res = await fetch(
+        `https://jisho.org/api/v1/search/words?keyword=${encodeURIComponent(keyword)}&page=${page}`,
+        { signal: controller.signal }
+      );
+
+      if (!res.ok) {
+        console.log(`[fetchPagedResults] Response not OK, stopping.`);
+        return; // <-- stop loop
+      }
+
+      const data = await res.json();
+      if (!data?.data?.length) {
+        console.log(`[fetchPagedResults] No more results, stopping.`);
+        return; // <-- stop loop
+      }
+
+      chrome.tabs.sendMessage(tabId, {
+        type: "searchResults",
+        entries: data.data,
+        page,
+      });
+
+      page++;
+      await sleep(200);
+    } catch (err) {
+      if (err.name === "AbortError") {
+        console.log(`[fetchPagedResults] Aborted for tab ${tabId}`);
+        return; // <-- stop loop
+      } else {
+        console.error("Fetch error:", err);
+        return; // <-- stop loop
+      }
+    }
+  }
+
+  console.log(`[fetchPagedResults] Stopped for tab ${tabId}`);
 }
+
 
 // Helper to translate selection
 async function translateSelection(text, tabId) {
@@ -104,9 +130,22 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
 // Still keep listener for popup or manual requests
 chrome.runtime.onMessage.addListener((msg, sender) => {
-  if (msg.type === "translate" && msg.text && sender.tab?.id) {
-    translateSelection(msg.text, sender.tab.id);
-  } else if (msg.type === "search" && msg.text && sender.tab?.id) {
-    fetchPagedResults(msg.text, sender.tab.id);
+  const tabId = msg.tabId || sender.tab?.id;
+
+  console.log("[onMessage]", msg, sender, "resolved tabId:", tabId);
+
+  if (msg.type === "translate" && msg.text && tabId) {
+    translateSelection(msg.text, tabId);
+  } else if (msg.type === "search" && msg.text && tabId) {
+    fetchPagedResults(msg.text, tabId);
+  } else if (msg.type === "stopFetch") {
+    console.log("test");
+    if (tabId && activeFetches.has(tabId)) {
+      console.log(`[stopFetch] Stopping fetch for tab ${tabId}`);
+      activeFetches.get(tabId).cancel = true;
+      activeFetches.get(tabId).controller?.abort();
+    } else {
+      console.log(`[stopFetch] No active fetch for tab ${tabId}`);
+    }
   }
 });

@@ -21,6 +21,16 @@ chrome.storage.onChanged.addListener((changes, area) => {
 // --- Listen for messages ---
 chrome.runtime.onMessage.addListener((msg) => {
   switch (msg.type) {
+    case "clearSearchResults":
+      allEntries = [];
+      currentIndex = 0;
+      const oldCard = document.getElementById("jisho-card");
+      if (oldCard) {
+        oldCard.querySelector(".jisho-meaning").textContent = "Searching...";
+        oldCard.querySelector(".jisho-counter").textContent = "0 / 0";
+      }
+      break;
+
     case "translate":
       allEntries = [];
       currentIndex = 0;
@@ -30,15 +40,30 @@ chrome.runtime.onMessage.addListener((msg) => {
     case "searchResults":
       if (!Array.isArray(msg.items) && !Array.isArray(msg.entries)) return;
       const items = msg.items || msg.entries;
+      const prevLength = allEntries.length;
       allEntries = allEntries.concat(items);
-      openOrUpdateCard(msg.keyword || items[0]?.japanese?.[0]?.word || items[0]?.japanese?.[0]?.reading || "");
+
+      // only auto-render if we're still at the start
+      if (prevLength === 0) {
+        currentIndex = 0; // reset to first result every new search
+        openOrUpdateCard(
+          msg.keyword ||
+          items[0]?.japanese?.[0]?.word ||
+          items[0]?.japanese?.[0]?.reading ||
+          ""
+        );
+        renderMeaning(currentIndex);
+      } else {
+        updateCounter(); // just update counter without resetting index
+      }
       break;
+
     case "translate-done":
       const card = document.getElementById("jisho-card");
       if (card) card.dataset.done = "true";
       console.log("✅ Translation done");
       break;
-    
+
     case "translationResult":
       showVitaletsCard(msg);
       break;
@@ -54,22 +79,24 @@ function normalizeKey(key) {
 }
 
 function updateCounter() {
-  const counter = document.querySelector("#jisho-card .jisho-counter");
-  if (counter) counter.textContent = `${currentIndex + 1} / ${allEntries.length}`;
+  renderMeaning(currentIndex);
+}
+
+function closeJishoCard() {
+  document.getElementById("jisho-card")?.remove();
+  chrome.runtime.sendMessage({ type: "stopFetch" });
 }
 
 // --- Main card ---
 function openOrUpdateCard(selection) {
   let card = document.getElementById("jisho-card");
-  if (!card) {
-    card = createJishoCard(selection);
-    document.body.appendChild(card);
+if (!card) {
+  card = createJishoCard(selection);
+  document.body.appendChild(card);
+  if (allEntries.length === 0) {
+    currentIndex = 0; // reset only if nothing loaded yet
   }
-
-  if (allEntries.length) {
-    currentIndex = 0;
-    renderMeaning(currentIndex);
-  }
+}
 }
 
 // --- Render meaning ---
@@ -271,7 +298,10 @@ function createJishoCard(selection) {
   const header = document.createElement("div");
   header.style.display = "flex"; header.style.justifyContent = "space-between";
   const title = document.createElement("span"); title.className = "jisho-title"; title.textContent = selection;
-  const closeBtn = document.createElement("span"); closeBtn.textContent = "✖"; closeBtn.style.cursor = "pointer"; closeBtn.onclick = () => card.remove();
+  const closeBtn = document.createElement("span"); closeBtn.textContent = "✖"; closeBtn.style.cursor = "pointer"; 
+  closeBtn.onclick = () => {
+    closeJishoCard();
+  };
   header.append(title, closeBtn);
 
   const meaningBox = document.createElement("div"); meaningBox.className = "jisho-meaning"; meaningBox.style.marginTop = "6px"; meaningBox.textContent = "Searching...";
@@ -291,10 +321,19 @@ function createJishoCard(selection) {
   card.append(header, meaningBox, nav, footer);
 
   // Keyboard nav & draggable
+  function navigate(direction) {
+    if (!allEntries.length) return;
+    if (direction === "prev") {
+      currentIndex = (currentIndex - 1 + allEntries.length) % allEntries.length;
+    } else if (direction === "next") {
+      currentIndex = (currentIndex + 1) % allEntries.length;
+    }
+    renderMeaning(currentIndex);
+  }
+
   document.addEventListener("keydown", (e) => {
-    if (e.key === "ArrowLeft") prevBtn.click();
-    if (e.key === "ArrowRight") nextBtn.click();
-    if (e.key === "Escape") card.remove();
+    if (e.key === "ArrowLeft") navigate("prev");
+    if (e.key === "ArrowRight") navigate("next");
   });
 
   let offsetX, offsetY, dragging = false;
@@ -358,8 +397,9 @@ function openAltXCard() {
 // --- Close cards on Esc ---
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
-    document.getElementById("jisho-card")?.remove();
+    closeJishoCard();
     document.getElementById("altx-card")?.remove();
     document.getElementById("vitalets-card")?.remove();
   }
 });
+

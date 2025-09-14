@@ -4,7 +4,9 @@
   "description": "Koto-sho is a Chrome/Chromium extension that helps you **learn Japanese faster** by providing quick dictionary lookups and kanji details directly from any webpage.",
   "main": "background.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "webpack --config webpack.config.js"
+
   },
   "repository": {
     "type": "git",
